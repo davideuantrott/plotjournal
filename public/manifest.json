@@ -2,7 +2,7 @@
   "name": "Plot Journal",
   "short_name": "Plot Journal",
   "description": "Your 5-minute garden diary — record, track, and learn from your growing season.",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#F9F4EE",
