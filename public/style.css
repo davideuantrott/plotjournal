@@ -182,9 +182,12 @@ body {
   letter-spacing: -0.01em; text-transform: lowercase;
   display: flex; align-items: center; gap: 0.45rem;
 }
+.header-actions {
+  display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0;
+}
 .header-user {
-  font-size: 0.75rem; font-weight: 700; color: var(--text-soft);
-  max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 0.72rem; font-weight: 700; color: var(--text-soft);
+  max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .sync-indicator { font-size: 0.65rem; transition: color 0.3s; }
 .sync-indicator.synced  { color: var(--tile-mint); }
@@ -609,6 +612,22 @@ input[type="date"] {
 .forecast-day-max   { font-size: 0.75rem; font-weight: 800; color: var(--text); }
 .forecast-day-min   { font-size: 0.62rem; font-weight: 600; color: var(--text-soft); }
 
+/* Feed forecast strip (home screen) */
+.feed-forecast-wrap {
+  background: var(--surface); border-radius: var(--r-lg);
+  padding: 0.9rem 1rem; margin-bottom: 1rem; box-shadow: var(--shadow-sm);
+}
+.feed-forecast-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;
+}
+.feed-forecast-location {
+  font-size: 0.65rem; font-weight: 700; color: var(--text-soft);
+  text-transform: lowercase; display: flex; align-items: center; gap: 4px;
+}
+.feed-forecast-rain {
+  font-size: 0.68rem; font-weight: 700; color: var(--text-mid);
+}
+
 /* Week label on new entry header */
 .entry-week-label {
   font-size: 0.68rem; font-weight: 700; color: var(--text-soft);
@@ -768,15 +787,16 @@ input[type="date"] {
 ═══════════════════════════════════════════════════════════════ */
 .toast {
   position: fixed;
-  bottom: calc(4.5rem + env(safe-area-inset-bottom));
-  left: 50%; transform: translateX(-50%) translateY(80px);
+  bottom: calc(5rem + env(safe-area-inset-bottom));
+  left: 50%; transform: translateX(-50%) translateY(8px);
   background: var(--surface); border: 1.5px solid var(--border-mid);
   color: var(--text); padding: 0.7rem 1.4rem; border-radius: var(--r-pill);
   font-family: 'Nunito', sans-serif; font-size: 0.8rem; font-weight: 700;
-  z-index: 500; transition: transform 0.28s ease; white-space: nowrap;
+  z-index: 500; transition: transform 0.25s ease, opacity 0.25s ease; white-space: nowrap;
   pointer-events: none; box-shadow: var(--shadow-lg);
+  opacity: 0;
 }
-.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 
 /* ═══════════════════════════════════════════════════════════════
    PHOTO ZOOM

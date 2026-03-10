@@ -158,6 +158,7 @@ function showAppScreen() {
   document.getElementById('app-screen').classList.add('active');
   initTodayLabel();
   renderFeed();
+  fetchWeatherForToday(); // populate feed forecast on load
 }
 
 // ════════════════════════════════════════════════════════════
@@ -772,10 +773,35 @@ async function fetchWeatherForToday() {
     }
     // Update tile preview
     updateTilePreview('weather', `${auto.emoji} ${auto.description} · ${weatherData.tempC}°C`);
+    // Update feed forecast strip if visible
+    renderFeedForecast();
 
   } catch (err) {
     console.warn('Weather fetch failed:', err);
   }
+}
+
+function renderFeedForecast() {
+  const el = document.getElementById('feed-forecast');
+  if (!el || !forecastDays.length) return;
+  const locLabel = userLocation?.name || 'your location';
+  const nextRain = forecastDays.slice(1).find(d => d.rainMm > 0.1);
+  el.innerHTML = `
+    <div class="feed-forecast-wrap">
+      <div class="feed-forecast-header">
+        <span class="feed-forecast-location">📍 ${escHtml(locLabel)}</span>
+        <span class="feed-forecast-rain">${nextRain ? `🌧 rain: ${nextRain.dayName}` : '☀️ no rain forecast'}</span>
+      </div>
+      <div class="forecast-days">
+        ${forecastDays.map(d => `
+          <div class="forecast-day${d.isToday ? ' today' : ''}">
+            <div class="forecast-day-name">${d.dayName}</div>
+            <div class="forecast-day-emoji">${d.emoji}</div>
+            <div class="forecast-day-max">${d.maxTemp}°</div>
+            <div class="forecast-day-min">${d.minTemp}°</div>
+          </div>`).join('')}
+      </div>
+    </div>`;
 }
 
 function renderForecastStrip() {
