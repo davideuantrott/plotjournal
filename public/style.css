@@ -813,15 +813,20 @@ input[type="date"] {
   .focus-card {
     position: absolute;
     top: 50%; left: 50%;
-    transform: translate(-50%, calc(-50% + 24px));
+    transform: translate(-50%, -50%) scale(0.96);
+    opacity: 0; pointer-events: none;
     bottom: auto; right: auto;
     width: 560px; max-width: 90vw;
     border-radius: var(--r-xl);
     max-height: 82vh;
     min-height: 0;
     box-shadow: var(--shadow-lg);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.28s ease;
   }
-  .focus-overlay.open .focus-card { transform: translate(-50%, -50%); }
+  .focus-overlay.open .focus-card {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1; pointer-events: all;
+  }
   .focus-handle { display: none; }
 
   /* ── Toast position ────────────────────────────────────────── */
