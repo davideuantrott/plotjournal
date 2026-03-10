@@ -63,7 +63,7 @@ plot-journal/
 │   ├── index.html          ← App shell + all HTML views + focus overlay
 │   ├── style.css           ← Full stylesheet (warm organic aesthetic)
 │   ├── app.js              ← All app logic (ES module, Firebase imports from CDN)
-│   ├── sw.js               ← Service worker (cache name: plot-journal-v2)
+│   ├── sw.js               ← Service worker (cache name: plot-journal-v3)
 │   ├── manifest.json       ← PWA manifest
 │   └── icons/
 │       ├── icon-192.png
@@ -147,6 +147,16 @@ The app has three breakpoints:
 
 ## Key App.js Patterns
 
+### Auto-save
+A new entry ID (`editingEntryId`) is assigned the moment `openNewEntry()` is called.
+Each time a tile overlay closes with `save=true`, `autoSaveDraft()` writes the current
+state to Firestore — so partial entries survive navigation away.
+The final "save entry" button just does a last write and navigates to the feed.
+
+### Week number
+`getWeekNumber(date)` returns the ISO week number. Displayed below the date on the
+new entry form via `#entry-week-label` (e.g. "week 10").
+
 ### Form state
 All entry field values live in the `formState` object, not in DOM elements:
 ```javascript
@@ -194,15 +204,25 @@ When updating these in JS, always update both:
 `fetchWeatherForToday()` is called automatically when a new entry is opened.
 
 Flow:
-1. Requests browser geolocation (5s timeout)
-2. Falls back to `DEFAULT_LAT = 52.48, DEFAULT_LON = -1.89` (Birmingham, central UK)
-3. Calls `https://api.open-meteo.com/v1/forecast` with current + daily params
-4. Maps WMO weather code → `sunny / cloudy / rainy / cold` category via `wmoCategoryAndEmoji()`
-5. Pre-fills `formState.weatherNotes` with a natural-language summary
-6. Auto-selects the matching weather tile
-7. If the weather overlay is open when data arrives, updates it live
+1. Checks `userLocation` (saved in Firestore `/users/{uid}/settings`) — uses it if set
+2. Otherwise requests browser geolocation (5s timeout)
+3. Falls back to `DEFAULT_LAT = 52.48, DEFAULT_LON = -1.89` (Birmingham, central UK)
+4. Calls `https://api.open-meteo.com/v1/forecast` with current + 7-day daily params
+5. Maps WMO weather code → `sunny / cloudy / rainy / cold` category via `wmoCategoryAndEmoji()`
+6. Pre-fills `formState.weatherNotes` with a natural-language summary
+7. Auto-selects the matching weather tile
+8. Renders a 7-day forecast strip inside the weather overlay (`renderForecastStrip()`)
+9. Shows "next rain" prediction in the forecast header
 
-To change the default location, edit `app.js`:
+### Manual location
+Users can tap **change** in the weather overlay to search for a place by name.
+Uses the Open-Meteo geocoding API (no key needed). Location is saved to Firestore
+at `/users/{uid}/settings` and loaded on every sign-in.
+
+**Foundation for future multi-location profiles:** the settings doc schema is
+`{ location: { lat, lon, name } }` — easily extended to `{ locations: [...] }`.
+
+To change the hard-coded fallback location, edit `app.js`:
 ```javascript
 const DEFAULT_LAT = 52.48;  // your latitude
 const DEFAULT_LON = -1.89;  // your longitude
@@ -275,7 +295,9 @@ Use gardening vocabulary naturally. Placeholder examples should reference realis
   and persisted to Firestore
 - Do not use `innerHTML` for user content without `escHtml()` sanitisation
 - When bumping the service worker cache version (`CACHE_NAME` in `sw.js`), increment
-  the number (currently `plot-journal-v2`) to force browsers to discard stale caches
+  the number (currently `plot-journal-v3`) to force browsers to discard stale caches
+- The SW now calls `self.clients.claim()` + `skipWaiting()` on activate, and the page
+  listens for `controllerchange` to auto-reload — users get updates without reinstalling
 
 ---
 
@@ -297,7 +319,7 @@ git add . && git commit -m "your message" && git push origin main
 ### Force browsers to pick up new app.js (if service worker is caching stale files)
 Bump the cache version in `sw.js`:
 ```javascript
-const CACHE_NAME = 'plot-journal-v3';  // increment each time
+const CACHE_NAME = 'plot-journal-v4';  // increment each time
 ```
 
 ### Test weather without a real entry

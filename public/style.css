@@ -528,6 +528,93 @@ input[type="date"] {
   font-size: 0.72rem; font-weight: 600; color: var(--text-soft); margin-bottom: 8px; min-height: 1em;
 }
 
+/* Location bar */
+.location-bar {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--surface-alt); border-radius: var(--r-md);
+  padding: 8px 12px; margin-bottom: 10px;
+  font-size: 0.78rem; font-weight: 600; color: var(--text-mid);
+}
+.location-bar-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.location-change-btn {
+  background: none; border: 1.5px solid var(--border-mid); border-radius: var(--r-pill);
+  color: var(--text-soft); font-family: 'Nunito', sans-serif;
+  font-size: 0.68rem; font-weight: 800; padding: 2px 10px;
+  cursor: pointer; text-transform: lowercase; transition: all 0.15s; flex-shrink: 0;
+}
+.location-change-btn:hover { border-color: var(--peach); color: var(--peach); }
+
+/* Location search (inline in weather overlay) */
+.location-search-inline { margin-bottom: 10px; }
+.location-search-row { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+.location-search-input {
+  flex: 1; background: var(--surface-alt); border: 1.5px solid var(--border);
+  border-radius: var(--r-md); padding: 8px 12px;
+  font-family: 'Nunito', sans-serif; font-size: 0.88rem; font-weight: 500;
+  color: var(--text); outline: none; transition: border-color 0.2s;
+}
+.location-search-input:focus { border-color: var(--peach); }
+.location-search-input::placeholder { color: var(--text-faint); font-style: italic; }
+.location-cancel-btn {
+  background: none; border: none; color: var(--text-soft);
+  font-family: 'Nunito', sans-serif; font-size: 0.78rem; font-weight: 700;
+  cursor: pointer; padding: 0 4px; flex-shrink: 0;
+  text-transform: lowercase; transition: color 0.15s;
+}
+.location-cancel-btn:hover { color: var(--peach); }
+.location-results { border-radius: var(--r-md); overflow: hidden; }
+.location-result-item {
+  display: flex; flex-direction: column; gap: 1px;
+  padding: 9px 12px; cursor: pointer;
+  border-bottom: 1px solid var(--border); background: var(--surface-alt);
+  transition: background 0.15s;
+}
+.location-result-item:last-child { border-bottom: none; }
+.location-result-item:hover { background: var(--peach-light); }
+.location-result-name { font-size: 0.85rem; font-weight: 700; color: var(--text); }
+.location-result-sub  { font-size: 0.7rem; font-weight: 500; color: var(--text-soft); }
+.location-searching, .location-no-results {
+  font-size: 0.78rem; font-weight: 600; color: var(--text-soft);
+  padding: 10px 12px; text-align: center; font-style: italic;
+}
+
+/* 7-day forecast strip */
+.forecast-strip {
+  background: rgba(142,207,223,0.08); border: 1px solid rgba(142,207,223,0.25);
+  border-radius: var(--r-md); padding: 10px 12px; margin-bottom: 14px;
+}
+.forecast-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.forecast-label {
+  font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--text-soft);
+}
+.forecast-rain-note { font-size: 0.68rem; font-weight: 700; color: var(--text-mid); }
+.forecast-days {
+  display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px;
+  scrollbar-width: none;
+}
+.forecast-days::-webkit-scrollbar { display: none; }
+.forecast-day {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  background: var(--surface); border-radius: var(--r-sm);
+  padding: 7px 9px; flex-shrink: 0; min-width: 46px;
+  border: 1px solid var(--border);
+}
+.forecast-day.today { background: var(--peach-light); border-color: rgba(232,149,122,0.4); }
+.forecast-day-name  { font-size: 0.62rem; font-weight: 800; color: var(--text-soft); text-transform: lowercase; }
+.forecast-day-emoji { font-size: 1.05rem; line-height: 1.2; }
+.forecast-day-max   { font-size: 0.75rem; font-weight: 800; color: var(--text); }
+.forecast-day-min   { font-size: 0.62rem; font-weight: 600; color: var(--text-soft); }
+
+/* Week label on new entry header */
+.entry-week-label {
+  font-size: 0.68rem; font-weight: 700; color: var(--text-soft);
+  text-transform: lowercase; margin-top: 1px; letter-spacing: 0.02em;
+}
+
 /* Photo upload */
 .photo-upload-area {
   border: 2px dashed var(--border-mid); border-radius: var(--r-lg);

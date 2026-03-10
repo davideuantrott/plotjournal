@@ -15,7 +15,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
   getFirestore, collection, doc,
-  setDoc, deleteDoc, onSnapshot,
+  setDoc, getDoc, deleteDoc, onSnapshot,
   query, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
@@ -46,9 +46,14 @@ let entries         = [];
 let currentPhotos   = [];
 let selectedWeather = null;
 let editingEntryId  = null;
+let draftCreatedAt  = null;
+let isNewEntry      = false;
 let currentFilter   = 'all';
 let firestoreUnsub  = null;
 let weatherData     = null;
+let forecastDays    = [];
+let userLocation    = null; // { lat, lon, name } — saved in Firestore settings
+let locationSearchTimer = null;
 
 // Per-section text state (mirrors what user has typed in each overlay)
 const formState = {
@@ -67,8 +72,10 @@ onAuthStateChanged(auth, user => {
     document.getElementById('header-username').textContent = displayName;
     const sidebarName = document.getElementById('sidebar-username');
     if (sidebarName) sidebarName.textContent = displayName;
-    showAppScreen();
-    subscribeToEntries();
+    loadUserSettings().then(() => {
+      showAppScreen();
+      subscribeToEntries();
+    });
   } else {
     currentUser = null;
     if (firestoreUnsub) { firestoreUnsub(); firestoreUnsub = null; }
@@ -195,6 +202,31 @@ function setSyncStatus(status) {
 }
 
 // ════════════════════════════════════════════════════════════
+// USER SETTINGS (location preference)
+// ════════════════════════════════════════════════════════════
+async function loadUserSettings() {
+  if (!currentUser) return;
+  try {
+    const snap = await getDoc(doc(db, 'users', currentUser.uid, 'settings'));
+    if (snap.exists() && snap.data().location) {
+      userLocation = snap.data().location;
+    }
+  } catch (e) {
+    console.warn('Failed to load user settings:', e);
+  }
+}
+
+async function saveUserLocation(location) {
+  userLocation = location;
+  if (!currentUser) return;
+  try {
+    await setDoc(doc(db, 'users', currentUser.uid, 'settings'), { location }, { merge: true });
+  } catch (e) {
+    console.warn('Failed to save location:', e);
+  }
+}
+
+// ════════════════════════════════════════════════════════════
 // NAVIGATION
 // ════════════════════════════════════════════════════════════
 function showView(name) {
@@ -285,11 +317,12 @@ document.getElementById('btn-form-back').addEventListener('click', () => showVie
 
 function openNewEntry() {
   clearFormState();
-  editingEntryId = null;
+  editingEntryId = Date.now().toString(36) + Math.random().toString(36).slice(2);
+  draftCreatedAt = new Date().toISOString();
+  isNewEntry     = true;
   document.getElementById('form-mode-label').textContent    = 'new entry';
-  document.getElementById('entry-date').value               = todayISO();
-  document.getElementById('entry-date-display').textContent =
-    new Date().toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' });
+  document.getElementById('entry-date').value = todayISO();
+  setEntryDateDisplay(new Date());
   renderAllTilePreviews();
   showView('new');
   fetchWeatherForToday();
@@ -309,7 +342,44 @@ function todayISO() {
   return new Date().toISOString().split('T')[0];
 }
 
+function ordinal(n) {
+  const s = ['th','st','nd','rd'];
+  const v = n % 100;
+  return s[(v - 20) % 10] || s[v] || s[0];
+}
+
+function formatEntryDate(date) {
+  const weekday = date.toLocaleDateString('en-GB', { weekday: 'long' });
+  const day     = date.getDate();
+  const month   = date.toLocaleDateString('en-GB', { month: 'long' });
+  const year    = date.getFullYear();
+  return `${weekday} ${day}${ordinal(day)} ${month} ${year}`;
+}
+
+function getWeekNumber(date) {
+  const d      = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+
+function setEntryDateDisplay(date) {
+  document.getElementById('entry-date-display').textContent = formatEntryDate(date);
+  document.getElementById('entry-week-label').textContent   = `week ${getWeekNumber(date)}`;
+}
+
 // ── TILE PREVIEWS ──────────────────────────────────────────
+const TILE_HINTS = {
+  weather:  'what was the weather like today?',
+  actions:  'what have you sown, transplanted or harvested?',
+  observe:  'how are the plants looking?',
+  problems: 'any issues or concerns?',
+  wins:     'what went well today?',
+  photos:   'add photos from your visit',
+  notes:    'anything else worth noting?'
+};
+
 function renderAllTilePreviews() {
   updateTilePreview('weather',  selectedWeather ? `${weatherEmoji(selectedWeather)} ${formState.weatherNotes || selectedWeather}` : '');
   updateTilePreview('actions',  [formState.sowed, formState.transplanted, formState.harvested, formState.maintenance].filter(Boolean).join(' · '));
@@ -329,7 +399,8 @@ function updateTilePreview(section, text) {
     preview.innerHTML = escHtml(short);
     tile.classList.add('has-content');
   } else {
-    preview.innerHTML = '<span class="tile-empty-hint">tap to add</span>';
+    const hint = TILE_HINTS[section] || 'tap to add';
+    preview.innerHTML = `<span class="tile-empty-hint">${hint}</span>`;
     tile.classList.remove('has-content');
   }
 }
@@ -416,6 +487,26 @@ window.openFocusOverlay = function(sectionKey) {
   const area = document.getElementById('focus-field-area');
   area.innerHTML = buildFocusFieldHTML(cfg);
 
+  // If weather overlay and data already loaded, populate immediately
+  if (sectionKey === 'weather' && weatherData) {
+    const auto      = wmoCategoryAndEmoji(weatherData.weatherCode);
+    const autoStrip = document.getElementById('focus-weather-auto-strip');
+    if (autoStrip) {
+      autoStrip.style.display = 'flex';
+      autoStrip.innerHTML = `
+        <div class="weather-auto-icon">${auto.emoji}</div>
+        <div>
+          <div class="weather-auto-main">${auto.description} · ${weatherData.tempC}°C (feels ${weatherData.feelsLike}°C)</div>
+          <div class="weather-auto-sub">↑${weatherData.maxTemp}° ↓${weatherData.minTemp}° · 💧${weatherData.humidity}% · 🌬${weatherData.wind}km/h · 🌅${weatherData.sunrise} 🌇${weatherData.sunset}${weatherData.rainTotal > 0 ? ` · 🌧${weatherData.rainTotal}mm` : ''}</div>
+        </div>
+        <div style="font-size:0.58rem;color:var(--text-soft);opacity:0.7;align-self:flex-start;margin-left:auto">Open-Meteo</div>`;
+    }
+    document.querySelectorAll('.weather-tile').forEach(t => t.classList.remove('selected'));
+    const cls = auto.category === 'sunny' ? 'sky' : auto.category === 'cloudy' ? 'cloud' : auto.category === 'rainy' ? 'rain' : 'cold';
+    document.querySelector(`.weather-tile.${cls}`)?.classList.add('selected');
+    renderForecastStrip();
+  }
+
   // Open overlay
   document.getElementById('focus-overlay').classList.add('open');
 
@@ -440,10 +531,25 @@ function buildFocusFieldHTML(cfg) {
             placeholder="${escAttr(f.placeholder)}">${escHtml(formState[f.key])}</textarea>
         </div>`).join('')}</div>`;
 
-    case 'weather':
+    case 'weather': {
+      const locName = userLocation?.name || 'device location';
       return `
+        <div class="location-bar" id="focus-location-bar">
+          <span>📍</span>
+          <span class="location-bar-name" id="focus-location-name">${escHtml(locName)}</span>
+          <button class="location-change-btn" onclick="toggleLocationSearch()">change</button>
+        </div>
+        <div class="location-search-inline" id="focus-location-search" style="display:none">
+          <div class="location-search-row">
+            <input type="text" id="location-search-input" class="location-search-input"
+              placeholder="search for a place…" oninput="debounceLocationSearch(this.value)">
+            <button class="location-cancel-btn" onclick="toggleLocationSearch()">cancel</button>
+          </div>
+          <div id="location-search-results" class="location-results"></div>
+        </div>
         <div class="weather-fetch-status" id="focus-weather-status"></div>
         <div id="focus-weather-auto-strip" class="weather-auto-strip" style="display:none"></div>
+        <div id="focus-forecast-strip" class="forecast-strip" style="display:none"></div>
         <div class="weather-tile-grid">
           <div class="weather-tile sky${selectedWeather==='sunny'?' selected':''}" onclick="selectWeatherTile(this,'sunny')">
             <div class="weather-tile-inner">☀️</div><div class="weather-tile-label">sunny</div>
@@ -461,6 +567,7 @@ function buildFocusFieldHTML(cfg) {
         <span class="focus-sub-label">additional notes</span>
         <textarea class="focus-sub-textarea" id="focus-ta-weatherNotes" rows="3"
           placeholder="e.g. Cool morning, warmed up by midday. Light frost overnight.">${escHtml(formState.weatherNotes)}</textarea>`;
+    }
 
     case 'photos':
       return `
@@ -480,6 +587,7 @@ window.closeFocusOverlay = function(save = false) {
   if (save && activeFocusSection) {
     saveFocusState(activeFocusSection);
     updateTilePreviews(activeFocusSection);
+    autoSaveDraft();
   }
   document.getElementById('focus-overlay').classList.remove('open');
   activeFocusSection = null;
@@ -511,10 +619,68 @@ function saveFocusState(sectionKey) {
   renderAllTilePreviews();
 }
 
-function updateTilePreviews(sectionKey) {
+function updateTilePreviews() {
   // Just re-run all previews — simpler and always correct
   renderAllTilePreviews();
 }
+
+// ── LOCATION SEARCH ────────────────────────────────────────
+window.toggleLocationSearch = function() {
+  const bar    = document.getElementById('focus-location-bar');
+  const search = document.getElementById('focus-location-search');
+  if (!search) return;
+  const isOpen = search.style.display !== 'none';
+  search.style.display = isOpen ? 'none' : 'block';
+  if (bar) bar.style.display = isOpen ? 'flex' : 'none';
+  if (!isOpen) {
+    document.getElementById('location-search-results').innerHTML = '';
+    setTimeout(() => document.getElementById('location-search-input')?.focus(), 50);
+  }
+};
+
+window.debounceLocationSearch = function(query) {
+  clearTimeout(locationSearchTimer);
+  if (!query.trim()) {
+    document.getElementById('location-search-results').innerHTML = '';
+    return;
+  }
+  locationSearchTimer = setTimeout(() => searchLocation(query), 450);
+};
+
+async function searchLocation(query) {
+  const resultsEl = document.getElementById('location-search-results');
+  if (!resultsEl) return;
+  resultsEl.innerHTML = '<div class="location-searching">searching…</div>';
+  try {
+    const res  = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=6&language=en&format=json`);
+    const data = await res.json();
+    if (!data.results?.length) {
+      resultsEl.innerHTML = '<div class="location-no-results">no places found</div>';
+      return;
+    }
+    resultsEl.innerHTML = data.results.map(r => {
+      const sub  = [r.admin1, r.country].filter(Boolean).join(', ');
+      const name = r.name + (sub ? ', ' + sub : '');
+      return `<div class="location-result-item" onclick="selectLocation(${r.latitude}, ${r.longitude}, '${escAttr(name)}')">
+        <span class="location-result-name">${escHtml(r.name)}</span>
+        <span class="location-result-sub">${escHtml(sub)}</span>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    resultsEl.innerHTML = '<div class="location-no-results">search failed — check connection</div>';
+  }
+}
+
+window.selectLocation = async function(lat, lon, name) {
+  await saveUserLocation({ lat, lon, name });
+  const locNameEl = document.getElementById('focus-location-name');
+  if (locNameEl) locNameEl.textContent = name;
+  window.toggleLocationSearch();
+  forecastDays = [];
+  document.getElementById('focus-forecast-strip').style.display = 'none';
+  document.getElementById('focus-weather-auto-strip').style.display = 'none';
+  fetchWeatherForToday();
+};
 
 // ── WEATHER TILES inside overlay ──────────────────────────
 window.selectWeatherTile = function(el, weather) {
@@ -530,7 +696,6 @@ const DEFAULT_LAT = 52.48;
 const DEFAULT_LON = -1.89;
 
 async function fetchWeatherForToday() {
-  // Update status in the overlay if it's open, otherwise store for when it opens
   const setStatus = (msg) => {
     const el = document.getElementById('focus-weather-status');
     if (el) el.textContent = msg;
@@ -541,8 +706,8 @@ async function fetchWeatherForToday() {
     const url = `https://api.open-meteo.com/v1/forecast?` +
       `latitude=${lat}&longitude=${lon}` +
       `&current=temperature_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,relative_humidity_2m` +
-      `&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,sunrise,sunset` +
-      `&timezone=Europe%2FLondon&forecast_days=1`;
+      `&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,sunrise,sunset,weather_code` +
+      `&timezone=Europe%2FLondon&forecast_days=7`;
 
     const res  = await fetch(url);
     const data = await res.json();
@@ -561,6 +726,22 @@ async function fetchWeatherForToday() {
     };
     const auto = wmoCategoryAndEmoji(c.weather_code);
     Object.assign(weatherData, { category: auto.category, emoji: auto.emoji, description: auto.description });
+
+    // Build 7-day forecast array
+    const dayNames = ['sun','mon','tue','wed','thu','fri','sat'];
+    forecastDays = d.time.map((dateStr, i) => {
+      const dow = new Date(dateStr + 'T12:00:00').getDay();
+      const wmo = wmoCategoryAndEmoji(d.weather_code[i]);
+      return {
+        dateStr,
+        dayName:  i === 0 ? 'today' : dayNames[dow],
+        emoji:    wmo.emoji,
+        maxTemp:  Math.round(d.temperature_2m_max[i]),
+        minTemp:  Math.round(d.temperature_2m_min[i]),
+        rainMm:   d.precipitation_sum[i] || 0,
+        isToday:  i === 0
+      };
+    });
 
     // Auto-select weather
     if (!selectedWeather) selectedWeather = auto.category;
@@ -586,6 +767,8 @@ async function fetchWeatherForToday() {
       const notesTA = document.getElementById('focus-ta-weatherNotes');
       if (notesTA && !notesTA.value) notesTA.value = formState.weatherNotes;
       setStatus('');
+      // Render forecast strip
+      renderForecastStrip();
     }
     // Update tile preview
     updateTilePreview('weather', `${auto.emoji} ${auto.description} · ${weatherData.tempC}°C`);
@@ -595,7 +778,29 @@ async function fetchWeatherForToday() {
   }
 }
 
+function renderForecastStrip() {
+  const el = document.getElementById('focus-forecast-strip');
+  if (!el || !forecastDays.length) return;
+  const nextRain = forecastDays.slice(1).find(d => d.rainMm > 0.1);
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div class="forecast-header">
+      <span class="forecast-label">7-day forecast</span>
+      <span class="forecast-rain-note">${nextRain ? `🌧 next rain: ${nextRain.dayName}` : '☀️ no rain forecast'}</span>
+    </div>
+    <div class="forecast-days">
+      ${forecastDays.map(d => `
+        <div class="forecast-day${d.isToday ? ' today' : ''}">
+          <div class="forecast-day-name">${d.dayName}</div>
+          <div class="forecast-day-emoji">${d.emoji}</div>
+          <div class="forecast-day-max">${d.maxTemp}°</div>
+          <div class="forecast-day-min">${d.minTemp}°</div>
+        </div>`).join('')}
+    </div>`;
+}
+
 function getLocation() {
+  if (userLocation) return Promise.resolve({ lat: userLocation.lat, lon: userLocation.lon });
   return new Promise(resolve => {
     if (!navigator.geolocation) return resolve({ lat: DEFAULT_LAT, lon: DEFAULT_LON });
     navigator.geolocation.getCurrentPosition(
@@ -687,14 +892,10 @@ window.removePhoto = function(i) {
 // ════════════════════════════════════════════════════════════
 document.getElementById('btn-save-entry').addEventListener('click', saveEntry);
 
-async function saveEntry() {
-  const btn = document.getElementById('btn-save-entry');
-  btn.disabled = true;
-  btn.textContent = '⏳ saving…';
-
-  const id = editingEntryId || (Date.now().toString(36) + Math.random().toString(36).slice(2));
-  const entry = {
-    id,
+function buildEntryObject() {
+  const existingEntry = entries.find(e => e.id === editingEntryId);
+  return {
+    id:           editingEntryId,
     date:         document.getElementById('entry-date').value,
     weather:      selectedWeather,
     weatherAuto:  weatherData || null,
@@ -710,14 +911,30 @@ async function saveEntry() {
     wins:         formState.wins,
     notes:        formState.notes,
     photos:       [...currentPhotos],
-    createdAt:    editingEntryId
-      ? (entries.find(e => e.id === editingEntryId)?.createdAt || new Date().toISOString())
-      : new Date().toISOString()
+    createdAt:    existingEntry?.createdAt || draftCreatedAt || new Date().toISOString()
   };
+}
+
+async function autoSaveDraft() {
+  if (!currentUser || !editingEntryId) return;
+  const hasContent = selectedWeather || currentPhotos.length > 0 ||
+    Object.values(formState).some(v => v.trim());
+  if (!hasContent) return;
+  try {
+    await saveEntryToFirestore(buildEntryObject());
+  } catch (e) {
+    console.warn('Auto-save failed:', e);
+  }
+}
+
+async function saveEntry() {
+  const btn = document.getElementById('btn-save-entry');
+  btn.disabled = true;
+  btn.textContent = '⏳ saving…';
 
   try {
-    await saveEntryToFirestore(entry);
-    showToast(editingEntryId ? '✏️ entry updated' : '✅ entry saved!');
+    await saveEntryToFirestore(buildEntryObject());
+    showToast(isNewEntry ? '✅ entry saved!' : '✏️ entry updated');
     showView('feed');
     switchNavTo('feed');
   } catch (e) {
@@ -808,10 +1025,10 @@ window.editEntry = function(id) {
   weatherData     = e.weatherAuto || null;
   currentPhotos   = e.photos ? [...e.photos] : [];
 
+  isNewEntry = false;
   document.getElementById('form-mode-label').textContent    = 'edit entry';
-  document.getElementById('entry-date').value               = e.date;
-  document.getElementById('entry-date-display').textContent =
-    new Date(e.date + 'T12:00:00').toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' });
+  document.getElementById('entry-date').value = e.date;
+  setEntryDateDisplay(new Date(e.date + 'T12:00:00'));
 
   renderAllTilePreviews();
   showView('new');
@@ -939,7 +1156,13 @@ function escAttr(str) {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js')
-      .then(r => console.log('SW registered:', r.scope))
+      .then(r => {
+        console.log('SW registered:', r.scope);
+        // When a new SW takes control, reload to get the latest version
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          window.location.reload();
+        });
+      })
       .catch(e => console.log('SW failed:', e));
   });
 }
