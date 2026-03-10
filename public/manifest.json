@@ -1,0 +1,24 @@
+{
+  "name": "Plot Journal",
+  "short_name": "Plot Journal",
+  "description": "Your 5-minute garden diary — record, track, and learn from your growing season.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F9F4EE",
+  "theme_color": "#E8957A",
+  "lang": "en-GB",
+  "categories": ["lifestyle", "productivity"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "New Entry",
+      "short_name": "New Entry",
+      "description": "Log today's garden visit",
+      "url": "/?new=1"
+    }
+  ]
+}

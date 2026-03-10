@@ -1,0 +1,45 @@
+# Dependencies (if any are ever added locally)
+node_modules/
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+firebase-config.local.js
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# JetBrains IDEs
+.idea/
+
+# Firebase CLI
+.firebase/
+.firebaserc
+firebase-debug.log
+
+# Logs
+*.log
+npm-debug.log*
+
+# Build artefacts (none expected — no build step)
+dist/
+build/
+
+# Temporary / backup files
+*.bak
+*.bak2
+*.tmp
+*.swp
+*~
