@@ -63,7 +63,7 @@ body {
 ═══════════════════════════════════════════════════════════════ */
 #auth-screen {
   min-height: 100vh;
-  display: flex; align-items: center; justify-content: center;
+  display: none; align-items: center; justify-content: center;
   padding: 2rem 1.25rem;
 }
 #auth-screen.active { display: flex; }
@@ -167,7 +167,7 @@ body {
 /* ═══════════════════════════════════════════════════════════════
    APP SHELL
 ═══════════════════════════════════════════════════════════════ */
-#app-screen { min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); }
+#app-screen { min-height: 100vh; display: none; flex-direction: column; background: var(--bg); }
 #app-screen.active { display: flex; }
 
 .app-header {
