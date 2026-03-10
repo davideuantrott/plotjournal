@@ -23,14 +23,15 @@ import {
 // 🔧 FIREBASE CONFIG — replace with your values from
 //    Firebase Console → Project Settings → Your Apps → Web App
 // ════════════════════════════════════════════════════════════
-const firebaseConfig = {
-  apiKey:            "REPLACE_WITH_YOUR_API_KEY",
-  authDomain:        "REPLACE_WITH_YOUR_AUTH_DOMAIN",
-  projectId:         "REPLACE_WITH_YOUR_PROJECT_ID",
-  storageBucket:     "REPLACE_WITH_YOUR_STORAGE_BUCKET",
-  messagingSenderId: "REPLACE_WITH_YOUR_MESSAGING_SENDER_ID",
-  appId:             "REPLACE_WITH_YOUR_APP_ID"
-};
+  const firebaseConfig = {
+    apiKey: "AIzaSyAGZz4iLmqlr2X5lC70af6ynOKNCnu4Xz8",
+    authDomain: "plot-journal.firebaseapp.com",
+    projectId: "plot-journal",
+    storageBucket: "plot-journal.firebasestorage.app",
+    messagingSenderId: "337287886098",
+    appId: "1:337287886098:web:42351aa18cddc3beb12fcb",
+    measurementId: "G-7SP1XPCK4E"
+  };
 
 const app            = initializeApp(firebaseConfig);
 const auth           = getAuth(app);
