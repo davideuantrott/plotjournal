@@ -63,8 +63,10 @@ const formState = {
 onAuthStateChanged(auth, user => {
   if (user) {
     currentUser = user;
-    document.getElementById('header-username').textContent =
-      (user.displayName || user.email || '').split(' ')[0];
+    const displayName = (user.displayName || user.email || '').split(' ')[0];
+    document.getElementById('header-username').textContent = displayName;
+    const sidebarName = document.getElementById('sidebar-username');
+    if (sidebarName) sidebarName.textContent = displayName;
     showAppScreen();
     subscribeToEntries();
   } else {
@@ -105,6 +107,7 @@ document.getElementById('btn-email-register').addEventListener('click', async ()
 });
 
 document.getElementById('btn-logout').addEventListener('click', () => signOut(auth));
+document.getElementById('btn-sidebar-logout').addEventListener('click', () => signOut(auth));
 
 window.showAuthTab = function(tab) {
   document.querySelectorAll('.auth-tab').forEach((t, i) =>
@@ -186,9 +189,9 @@ async function deleteEntryFromFirestore(id) {
 }
 
 function setSyncStatus(status) {
-  const el = document.getElementById('sync-indicator');
-  el.className = `sync-indicator ${status}`;
-  el.title = { synced:'Synced', syncing:'Syncing…', error:'Sync error' }[status] || '';
+  const title = { synced:'Synced', syncing:'Syncing…', error:'Sync error' }[status] || '';
+  [document.getElementById('sync-indicator'), document.getElementById('sidebar-sync')]
+    .forEach(el => { if (el) { el.className = `sync-indicator ${status}`; el.title = title; } });
 }
 
 // ════════════════════════════════════════════════════════════
@@ -203,7 +206,7 @@ function showView(name) {
 document.querySelectorAll('.nav-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+    document.querySelectorAll(`.nav-btn[data-view="${btn.dataset.view}"]`).forEach(b => b.classList.add('active'));
     const v = btn.dataset.view;
     showView(v);
     if (v === 'feed')   renderFeed();

@@ -702,13 +702,128 @@ input[type="date"] {
   max-width: 95vw; max-height: 90vh; border-radius: var(--r-lg); object-fit: contain;
 }
 
+/* ── Sidebar footer — desktop-only user info ────────────────── */
+.sidebar-footer { display: none; }
+
 /* ═══════════════════════════════════════════════════════════════
-   RESPONSIVE
+   RESPONSIVE — narrow (≥480px, phones / landscape)
 ═══════════════════════════════════════════════════════════════ */
-@media (min-width: 480px) {
+@media (min-width: 480px) and (max-width: 767px) {
   .app-main   { max-width: 480px; margin: 0 auto; }
   .app-nav    { max-width: 480px; left: 50%; transform: translateX(-50%); }
   .app-header { justify-content: center; }
   .focus-card { max-width: 480px; left: 50%; transform: translate(-50%, 100%); right: auto; width: 100%; }
   .focus-overlay.open .focus-card { transform: translate(-50%, 0); }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE — desktop / tablet (≥768px)
+   Sidebar nav · wider grids · centred modal overlay
+═══════════════════════════════════════════════════════════════ */
+@media (min-width: 768px) {
+
+  /* ── App shell: row layout ─────────────────────────────────── */
+  #app-screen.active { flex-direction: row; align-items: stretch; }
+
+  /* ── Sidebar shell ─────────────────────────────────────────── */
+  .app-sidebar-shell {
+    width: 220px; flex-shrink: 0;
+    display: flex; flex-direction: column;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    box-shadow: 2px 0 16px rgba(44,26,14,0.06);
+    position: sticky; top: 0;
+    height: 100vh; overflow: hidden;
+    z-index: 100;
+  }
+
+  /* ── Header becomes sidebar top ───────────────────────────── */
+  .app-header {
+    position: static;
+    height: auto; padding: 1.75rem 1.25rem 1.5rem;
+    flex-direction: column; align-items: flex-start; gap: 0;
+    border-bottom: 1px solid var(--border);
+    background: transparent; backdrop-filter: none;
+  }
+  .header-title { font-size: 1.15rem; }
+  /* Hide mobile user row — username/sync/logout move to sidebar footer */
+  .header-actions { display: none; }
+
+  /* ── Sidebar nav ───────────────────────────────────────────── */
+  .app-nav {
+    position: static; flex-direction: column;
+    background: transparent; backdrop-filter: none;
+    border-top: none; border-right: none;
+    padding: 1rem 0.75rem; gap: 0.2rem;
+    flex: 1; transform: none; max-width: none;
+    left: auto; right: auto; bottom: auto;
+    padding-bottom: 0;
+  }
+  .nav-btn {
+    flex-direction: row; justify-content: flex-start; align-items: center;
+    padding: 0.72rem 1rem; border-radius: var(--r-md);
+    gap: 0.7rem; font-size: 0.83rem; letter-spacing: 0;
+    text-align: left; width: 100%;
+  }
+  .nav-btn.active {
+    background: var(--peach-light); color: var(--peach);
+    border-radius: var(--r-md);
+  }
+  .nav-btn:hover { background: var(--surface-alt); color: var(--text-mid); }
+  .nav-icon { font-size: 1.15rem; }
+
+  /* ── Sidebar footer ────────────────────────────────────────── */
+  .sidebar-footer {
+    display: flex; flex-direction: column; gap: 0.6rem;
+    padding: 1rem 1.25rem 1.5rem;
+    border-top: 1px solid var(--border);
+    margin-top: auto;
+  }
+  .sidebar-user-info {
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .sidebar-username {
+    font-size: 0.78rem; font-weight: 700; color: var(--text-soft);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;
+  }
+  .sidebar-signout {
+    font-size: 0.75rem; font-weight: 700; color: var(--text-soft);
+    padding: 0.4rem 0; text-align: left;
+    letter-spacing: 0.01em; text-transform: lowercase;
+  }
+  .sidebar-signout:hover { color: var(--peach); }
+
+  /* ── Main content area ─────────────────────────────────────── */
+  .app-main {
+    flex: 1; padding: 2.5rem 3rem 2.5rem;
+    max-width: none; margin: 0;
+    overflow-y: auto; min-height: 100vh;
+  }
+
+  /* ── Botanical ─────────────────────────────────────────────── */
+  .botanical-bl { bottom: 40px; }
+
+  /* ── Tile grid: 3 columns ──────────────────────────────────── */
+  .section-tile-grid { grid-template-columns: 1fr 1fr 1fr; }
+
+  /* ── Stats: 4 columns ──────────────────────────────────────── */
+  .stats-grid { grid-template-columns: repeat(4, 1fr); }
+
+  /* ── Focus overlay: centred modal dialog ───────────────────── */
+  .focus-card {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, calc(-50% + 24px));
+    bottom: auto; right: auto;
+    width: 560px; max-width: 90vw;
+    border-radius: var(--r-xl);
+    max-height: 82vh;
+    min-height: 0;
+    box-shadow: var(--shadow-lg);
+  }
+  .focus-overlay.open .focus-card { transform: translate(-50%, -50%); }
+  .focus-handle { display: none; }
+
+  /* ── Toast position ────────────────────────────────────────── */
+  .toast { bottom: 1.5rem; }
 }
