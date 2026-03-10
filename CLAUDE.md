@@ -201,7 +201,7 @@ When updating these in JS, always update both:
 
 **Status: Fully wired in. No API key required.**
 
-`fetchWeatherForToday()` is called automatically when a new entry is opened.
+`fetchWeatherForToday()` is called on app load (`showAppScreen()`) and again when a new entry is opened.
 
 Flow:
 1. Checks `userLocation` (saved in Firestore `/users/{uid}/settings`) — uses it if set
@@ -211,8 +211,9 @@ Flow:
 5. Maps WMO weather code → `sunny / cloudy / rainy / cold` category via `wmoCategoryAndEmoji()`
 6. Pre-fills `formState.weatherNotes` with a natural-language summary
 7. Auto-selects the matching weather tile
-8. Renders a 7-day forecast strip inside the weather overlay (`renderForecastStrip()`)
-9. Shows "next rain" prediction in the forecast header
+8. Renders a 7-day forecast strip on the feed home screen (`renderFeedForecast()`)
+9. Renders a 7-day forecast strip inside the weather overlay (`renderForecastStrip()`)
+10. Shows "next rain" prediction in both forecast headers
 
 ### Manual location
 Users can tap **change** in the weather overlay to search for a place by name.
@@ -296,8 +297,10 @@ Use gardening vocabulary naturally. Placeholder examples should reference realis
 - Do not use `innerHTML` for user content without `escHtml()` sanitisation
 - When bumping the service worker cache version (`CACHE_NAME` in `sw.js`), increment
   the number (currently `plot-journal-v3`) to force browsers to discard stale caches
-- The SW now calls `self.clients.claim()` + `skipWaiting()` on activate, and the page
+- The SW calls `self.clients.claim()` + `skipWaiting()` on activate; the page
   listens for `controllerchange` to auto-reload — users get updates without reinstalling
+- Toast uses `opacity` transition (not just `translateY`) to ensure reliable fade-out
+- `.header-actions` must stay `display: flex` to prevent mobile header items wrapping
 
 ---
 
