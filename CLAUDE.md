@@ -22,12 +22,22 @@ prioritise speed and ease of use on mobile, especially outdoors.
 
 ---
 
+## Deployment
+
+- **Live URL**: `https://davideuantrott.github.io/plotjournal/`
+- **GitHub repo**: `https://github.com/davideuantrott/plotjournal`
+- Auto-deploys on every push to `main` via `.github/workflows/deploy.yml`
+- Firebase project: `plot-journal` (Firestore region: `europe-west2`)
+- Firebase config is live in `public/app.js` lines ~26–33 (real values, not placeholders)
+
+---
+
 ## Tech Stack
 
 | Layer | Technology | Notes |
 |-------|-----------|-------|
 | Hosting | GitHub Pages | Auto-deploys `public/` via `.github/workflows/deploy.yml` |
-| Auth | Firebase Auth | Google Sign-In + email/password |
+| Auth | Firebase Auth | Google Sign-In (primary) + email/password |
 | Database | Cloud Firestore | Real-time sync, per-user subcollection |
 | Weather | Open-Meteo API | No API key needed — free forever |
 | Frontend | Vanilla JS (ES modules) | No build step, no bundler, no framework |
@@ -35,6 +45,13 @@ prioritise speed and ease of use on mobile, especially outdoors.
 
 **Important**: There is no build step. The files in `public/` are served directly.
 Do not introduce npm, webpack, TypeScript, or any framework without being asked.
+
+### Auth notes
+- Google Sign-In is the primary working method
+- Email/password sign-in works for existing accounts; **registration** (createUserWithEmailAndPassword)
+  fails on new Firebase projects due to reCAPTCHA Enterprise being enabled by default
+- New users should be added via Firebase Console → Authentication → Users, or use Google Sign-In
+- Firebase web API keys are safe to commit — they are not secrets; access is restricted by authorised domain
 
 ---
 
@@ -46,7 +63,7 @@ plot-journal/
 │   ├── index.html          ← App shell + all HTML views + focus overlay
 │   ├── style.css           ← Full stylesheet (warm organic aesthetic)
 │   ├── app.js              ← All app logic (ES module, Firebase imports from CDN)
-│   ├── sw.js               ← Service worker
+│   ├── sw.js               ← Service worker (cache name: plot-journal-v2)
 │   ├── manifest.json       ← PWA manifest
 │   └── icons/
 │       ├── icon-192.png
@@ -96,6 +113,38 @@ The app uses a warm organic aesthetic inspired by soft mobile app design.
 
 ---
 
+## Responsive Layout
+
+The app has three breakpoints:
+
+| Viewport | Layout |
+|----------|--------|
+| < 480px (mobile portrait) | Sticky top header · fixed bottom nav · 2-col tile grid |
+| 480–767px (landscape phone) | Same as mobile, centred at max-width 480px |
+| ≥ 768px (tablet / desktop) | Left sidebar (220px) · 3-col tile grid · 4-col stats · centred modal overlay |
+
+### Desktop sidebar structure (index.html)
+```html
+<aside class="app-sidebar-shell">
+  <header class="app-header">   ← logo only on desktop; full bar on mobile
+  <nav class="app-nav">         ← bottom bar on mobile; vertical in sidebar on desktop
+  <div class="sidebar-footer">  ← desktop only: username, sync dot, sign out
+</aside>
+<main class="app-main">
+```
+
+- `.header-actions` is hidden on desktop (user info moves to `.sidebar-footer`)
+- `.sidebar-footer` is hidden on mobile
+- Nav buttons use class `nav-btn` + `data-view` — JS selects all matching buttons so
+  both mobile and desktop nav stay in sync when switching views
+
+### Focus overlay
+- **Mobile**: slides up from bottom (`.focus-card` transform: translateY)
+- **Desktop**: centred modal with scale+opacity fade-in transition
+- Do not break either animation
+
+---
+
 ## Key App.js Patterns
 
 ### Form state
@@ -129,11 +178,12 @@ Types: `'single'` (one textarea) · `'multi'` (multiple sub-textareas) · `'weat
 4. Add field key to `formState` and to the entry object in `saveEntry()`
 5. Add to `detail view` rendering in `openDetail()`
 
-### Focus overlay
-- Opened by `openFocusOverlay(sectionKey)`
-- HTML for each section is built dynamically by `buildFocusFieldHTML(cfg)`
-- Closed by `closeFocusOverlay(save)` — pass `true` to save, `false`/empty to discard
-- The overlay slides up from the bottom over a blurred darker backdrop
+### Dual display elements (mobile + desktop)
+Some UI values are shown in both the mobile header and desktop sidebar footer.
+When updating these in JS, always update both:
+- Username: `#header-username` (mobile) and `#sidebar-username` (desktop)
+- Sync status: `#sync-indicator` (mobile) and `#sidebar-sync` (desktop) — handled by `setSyncStatus()`
+- Logout: `#btn-logout` (mobile) and `#btn-sidebar-logout` (desktop)
 
 ---
 
@@ -164,21 +214,15 @@ Common UK defaults: London `51.51, -0.12` · Manchester `53.48, -2.24` · Edinbu
 
 ## Firebase Configuration
 
-The `firebaseConfig` object in `app.js` lines ~22–30 contains placeholder values.
-**The user must replace these with their own Firebase project values before deploying.**
+Firebase config is live in `public/app.js` lines ~26–33.
+The Firebase web API key is safe to be in client-side code — it is not a secret.
+Access is restricted by authorised domain in Firebase Console.
 
-```javascript
-const firebaseConfig = {
-  apiKey:            "REPLACE_WITH_YOUR_API_KEY",
-  authDomain:        "REPLACE_WITH_YOUR_AUTH_DOMAIN",
-  projectId:         "REPLACE_WITH_YOUR_PROJECT_ID",
-  storageBucket:     "REPLACE_WITH_YOUR_STORAGE_BUCKET",
-  messagingSenderId: "REPLACE_WITH_YOUR_MESSAGING_SENDER_ID",
-  appId:             "REPLACE_WITH_YOUR_APP_ID"
-};
-```
+Authorised domains configured:
+- `davideuantrott.github.io`
+- `localhost`
 
-**Never commit real Firebase credentials.** The README.md explains how to set these up.
+**Never replace the real config with placeholder values.**
 
 ---
 
@@ -225,27 +269,35 @@ Use gardening vocabulary naturally. Placeholder examples should reference realis
 - Do not change `--bg`, `--surface`, `--peach`, or font from Nunito without being asked
 - Do not remove the botanical SVG leaf decorations
 - Do not change lowercase UI convention (headings, buttons, labels are all lowercase)
-- Do not store real API keys or Firebase credentials in any file
-- Do not break the focus overlay slide-up animation (transition in `.focus-card`)
+- Do not replace the live Firebase config with placeholder values
+- Do not break the focus overlay animation (slide-up on mobile, scale+fade on desktop)
 - Do not add `localStorage` — state is in-memory (`formState`, `currentPhotos`, etc.)
   and persisted to Firestore
 - Do not use `innerHTML` for user content without `escHtml()` sanitisation
+- When bumping the service worker cache version (`CACHE_NAME` in `sw.js`), increment
+  the number (currently `plot-journal-v2`) to force browsers to discard stale caches
 
 ---
 
 ## Common Tasks
 
-### Run locally
-```bash
-cd public && python3 -m http.server 8080
-# then open http://localhost:8080
-# (add localhost to Firebase authorised domains for Google sign-in)
-```
+### Run locally (Windows — use VSCode Live Server)
+1. Install the **Live Server** extension in VSCode (by Ritwick Dey)
+2. Right-click `public/index.html` in the Explorer panel → **Open with Live Server**
+3. Opens at `http://127.0.0.1:5500/public/`
+
+Note: `python -m http.server` is blocked by antivirus on this machine.
 
 ### Deploy
 ```bash
 git add . && git commit -m "your message" && git push origin main
 # GitHub Actions deploys automatically — check Actions tab for progress
+```
+
+### Force browsers to pick up new app.js (if service worker is caching stale files)
+Bump the cache version in `sw.js`:
+```javascript
+const CACHE_NAME = 'plot-journal-v3';  // increment each time
 ```
 
 ### Test weather without a real entry
