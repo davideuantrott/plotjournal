@@ -257,10 +257,20 @@ weatherAuto { tempC, feelsLike, humidity, wind, precipitation, weatherCode,
               maxTemp, minTemp, rainTotal, sunrise, sunset, emoji, description, category, lat, lon },
 weatherNotes, sowed, transplanted, harvested, maintenance,
 health, pests, thriving, problems, wins, notes,
-photos (base64 JPEG array), createdAt (ISO string), updatedAt (Firestore serverTimestamp)
+photos (base64 JPEG array, max 5), createdAt (ISO string), updatedAt (Firestore serverTimestamp)
 ```
 
 Security rules in `firestore.rules` ensure strict per-user isolation.
+
+### Photo storage constraints
+Photos are stored as base64 JPEG strings inside the Firestore entry document.
+**Firestore has a hard 1 MB document limit.** To stay within it:
+- Photos are compressed to max 600px and 0.65 JPEG quality (`compressImage`)
+- Maximum 5 photos per entry (`MAX_PHOTOS` constant in `app.js`)
+- `saveEntry()` measures the serialised entry before writing; if > 950 KB it strips photos
+  and saves the rest, warning the user
+- `autoSaveDraft()` skips the write entirely if the entry is > 950 KB
+- If budget becomes a problem in future, migrate photos to Firebase Storage and store URLs
 
 ---
 
@@ -301,6 +311,8 @@ Use gardening vocabulary naturally. Placeholder examples should reference realis
   listens for `controllerchange` to auto-reload — users get updates without reinstalling
 - Toast uses `opacity` transition (not just `translateY`) to ensure reliable fade-out
 - `.header-actions` must stay `display: flex` to prevent mobile header items wrapping
+- Do not increase photo compression quality above 0.65 or max size above 600px — Firestore 1 MB limit
+- Do not raise `MAX_PHOTOS` above 5 without also reducing compression further
 
 ---
 

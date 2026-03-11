@@ -871,12 +871,17 @@ document.getElementById('focus-field-area').addEventListener('change', e => {
   }
 });
 
+const MAX_PHOTOS = 5;
+
 function handlePhotoFiles(files) {
-  files.forEach(file => compressImage(file, 800, 0.78, b64 => {
+  const available = MAX_PHOTOS - currentPhotos.length;
+  if (available <= 0) { showToast('⚠️ max 5 photos per entry'); return; }
+  [...files].slice(0, available).forEach(file => compressImage(file, 600, 0.65, b64 => {
     currentPhotos.push(b64);
     renderFocusPhotoPreviews();
     updateTilePreview('photos', `${currentPhotos.length} photo${currentPhotos.length === 1 ? '' : 's'}`);
   }));
+  if (files.length > available) showToast(`⚠️ max 5 photos — kept first ${available}`);
 }
 
 function compressImage(file, maxPx, quality, cb) {
@@ -947,7 +952,13 @@ async function autoSaveDraft() {
     Object.values(formState).some(v => v.trim());
   if (!hasContent) return;
   try {
-    await saveEntryToFirestore(buildEntryObject());
+    const entry = buildEntryObject();
+    // Skip auto-save if photos push document over Firestore's 1 MB limit
+    if (JSON.stringify(entry).length > 950_000) {
+      console.warn('Auto-save skipped: entry too large for Firestore');
+      return;
+    }
+    await saveEntryToFirestore(entry);
   } catch (e) {
     console.warn('Auto-save failed:', e);
   }
@@ -959,12 +970,24 @@ async function saveEntry() {
   btn.textContent = '⏳ saving…';
 
   try {
-    await saveEntryToFirestore(buildEntryObject());
+    const entry = buildEntryObject();
+    // Guard: Firestore documents have a 1 MB limit. Warn and strip photos if too large.
+    const approxBytes = JSON.stringify(entry).length;
+    if (approxBytes > 950_000) {
+      entry.photos = [];
+      showToast('⚠️ photos too large — entry saved without photos');
+    }
+    await saveEntryToFirestore(entry);
     showToast(isNewEntry ? '✅ entry saved!' : '✏️ entry updated');
     showView('feed');
     switchNavTo('feed');
   } catch (e) {
-    showToast('⚠️ save failed — check connection');
+    const msg = e?.message || '';
+    if (msg.includes('larger than') || msg.includes('1 MiB') || e?.code === 'invalid-argument') {
+      showToast('⚠️ photos too large — try fewer or smaller images');
+    } else {
+      showToast('⚠️ save failed — check connection');
+    }
     console.error(e);
   }
 
