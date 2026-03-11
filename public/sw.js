@@ -4,7 +4,7 @@
  * Firebase sync handles data persistence
  */
 
-const CACHE_NAME = 'plot-journal-v3';
+const CACHE_NAME = 'plot-journal-v4';
 
 const STATIC_ASSETS = [
   './',

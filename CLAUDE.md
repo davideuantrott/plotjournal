@@ -306,7 +306,7 @@ Use gardening vocabulary naturally. Placeholder examples should reference realis
   and persisted to Firestore
 - Do not use `innerHTML` for user content without `escHtml()` sanitisation
 - When bumping the service worker cache version (`CACHE_NAME` in `sw.js`), increment
-  the number (currently `plot-journal-v3`) to force browsers to discard stale caches
+  the number (currently `plot-journal-v4`) to force browsers to discard stale caches
 - The SW calls `self.clients.claim()` + `skipWaiting()` on activate; the page
   listens for `controllerchange` to auto-reload — users get updates without reinstalling
 - Toast uses `opacity` transition (not just `translateY`) to ensure reliable fade-out
@@ -334,7 +334,7 @@ git add . && git commit -m "your message" && git push origin main
 ### Force browsers to pick up new app.js (if service worker is caching stale files)
 Bump the cache version in `sw.js`:
 ```javascript
-const CACHE_NAME = 'plot-journal-v4';  // increment each time
+const CACHE_NAME = 'plot-journal-v5';  // increment each time
 ```
 
 ### Test weather without a real entry
