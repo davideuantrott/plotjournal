@@ -326,7 +326,13 @@ Use gardening vocabulary naturally. Placeholder examples should reference realis
 Note: `python -m http.server` is blocked by antivirus on this machine.
 
 ### Deploy
+**Important:** Before every deploy that changes any file in `public/`, bump the SW cache
+version in `sw.js` — otherwise installed PWAs will keep serving stale cached files.
+
 ```bash
+# 1. Bump CACHE_NAME in public/sw.js (e.g. plot-journal-v4 → plot-journal-v5)
+# 2. Update the version reference in CLAUDE.md (two places: Things to Avoid + Common Tasks)
+# 3. Commit and push:
 git add . && git commit -m "your message" && git push origin main
 # GitHub Actions deploys automatically — check Actions tab for progress
 ```
