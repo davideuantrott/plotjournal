@@ -52,6 +52,13 @@ Do not introduce npm, webpack, TypeScript, or any framework without being asked.
   fails on new Firebase projects due to reCAPTCHA Enterprise being enabled by default
 - New users should be added via Firebase Console → Authentication → Users, or use Google Sign-In
 - Firebase web API keys are safe to commit — they are not secrets; access is restricted by authorised domain
+- **Account linking**: if a user has a Google account and tries email/password (or vice versa),
+  `app.js` handles `auth/account-exists-with-different-credential` automatically — stores the
+  pending credential in `pendingCredential`, prompts the user to sign in via the other method,
+  then calls `linkWithCredential` to merge both providers on success
+- `auth/invalid-credential` is what newer Firebase projects return for wrong password (email
+  enumeration protection on by default) — the error message hints users to try Google Sign-In
+  if that's how they originally registered
 
 ---
 
@@ -306,7 +313,7 @@ Use gardening vocabulary naturally. Placeholder examples should reference realis
   and persisted to Firestore
 - Do not use `innerHTML` for user content without `escHtml()` sanitisation
 - When bumping the service worker cache version (`CACHE_NAME` in `sw.js`), increment
-  the number (currently `plot-journal-v4`) to force browsers to discard stale caches
+  the number (currently `plot-journal-v5`) to force browsers to discard stale caches
 - The SW calls `self.clients.claim()` + `skipWaiting()` on activate; the page
   listens for `controllerchange` to auto-reload — users get updates without reinstalling
 - Toast uses `opacity` transition (not just `translateY`) to ensure reliable fade-out
@@ -330,7 +337,7 @@ Note: `python -m http.server` is blocked by antivirus on this machine.
 version in `sw.js` — otherwise installed PWAs will keep serving stale cached files.
 
 ```bash
-# 1. Bump CACHE_NAME in public/sw.js (e.g. plot-journal-v4 → plot-journal-v5)
+# 1. Bump CACHE_NAME in public/sw.js (e.g. plot-journal-v5 → plot-journal-v5)
 # 2. Update the version reference in CLAUDE.md (two places: Things to Avoid + Common Tasks)
 # 3. Commit and push:
 git add . && git commit -m "your message" && git push origin main

@@ -11,6 +11,7 @@ import {
   getAuth, onAuthStateChanged,
   signInWithEmailAndPassword, createUserWithEmailAndPassword,
   signInWithPopup, GoogleAuthProvider,
+  linkWithCredential, EmailAuthProvider,
   updateProfile, signOut
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
@@ -41,13 +42,14 @@ const googleProvider = new GoogleAuthProvider();
 // ════════════════════════════════════════════════════════════
 // STATE
 // ════════════════════════════════════════════════════════════
-let currentUser     = null;
-let entries         = [];
-let currentPhotos   = [];
-let selectedWeather = null;
-let editingEntryId  = null;
-let draftCreatedAt  = null;
-let isNewEntry      = false;
+let currentUser        = null;
+let entries            = [];
+let currentPhotos      = [];
+let selectedWeather    = null;
+let editingEntryId     = null;
+let draftCreatedAt     = null;
+let isNewEntry         = false;
+let pendingCredential  = null; // stored when account-exists-with-different-credential
 let currentFilter   = 'all';
 let firestoreUnsub  = null;
 let weatherData     = null;
@@ -87,8 +89,21 @@ onAuthStateChanged(auth, user => {
 // AUTH ACTIONS
 // ════════════════════════════════════════════════════════════
 document.getElementById('btn-google-signin').addEventListener('click', async () => {
-  try { await signInWithPopup(auth, googleProvider); }
-  catch (e) { setAuthMsg(friendlyAuthError(e.code)); }
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    if (pendingCredential) {
+      try { await linkWithCredential(result.user, pendingCredential); } catch (_) {}
+      pendingCredential = null;
+    }
+  } catch (e) {
+    if (e.code === 'auth/account-exists-with-different-credential') {
+      pendingCredential = GoogleAuthProvider.credentialFromError(e);
+      setAuthMsg('This email already has a password account. Sign in with your password below — your Google account will be linked automatically.');
+      window.showAuthTab('login');
+    } else {
+      setAuthMsg(friendlyAuthError(e.code));
+    }
+  }
 });
 
 document.getElementById('btn-email-login').addEventListener('click', async () => {
@@ -96,8 +111,13 @@ document.getElementById('btn-email-login').addEventListener('click', async () =>
   const pass  = document.getElementById('login-password').value;
   if (!email || !pass) return setAuthMsg('Please fill all fields');
   setAuthMsg('Signing in…', 'neutral');
-  try { await signInWithEmailAndPassword(auth, email, pass); }
-  catch (e) { setAuthMsg(friendlyAuthError(e.code)); }
+  try {
+    const result = await signInWithEmailAndPassword(auth, email, pass);
+    if (pendingCredential) {
+      try { await linkWithCredential(result.user, pendingCredential); } catch (_) {}
+      pendingCredential = null;
+    }
+  } catch (e) { setAuthMsg(friendlyAuthError(e.code)); }
 });
 
 document.getElementById('btn-email-register').addEventListener('click', async () => {
@@ -133,15 +153,17 @@ function setAuthMsg(msg, type = 'error') {
 
 function friendlyAuthError(code) {
   const map = {
-    'auth/wrong-password':        'Incorrect password',
-    'auth/user-not-found':        'No account with that email',
-    'auth/email-already-in-use':  'Email already registered — sign in instead',
-    'auth/invalid-email':         'Invalid email address',
-    'auth/too-many-requests':     'Too many attempts — try again later',
-    'auth/popup-closed-by-user':  'Google sign-in was cancelled',
-    'auth/network-request-failed':'Network error — check your connection',
+    'auth/wrong-password':                           'Incorrect password',
+    'auth/user-not-found':                           'No account with that email — try Google Sign-In if you signed up that way',
+    'auth/invalid-credential':                       'Incorrect email or password — try Google Sign-In if you signed up that way',
+    'auth/email-already-in-use':                     'Email already registered — sign in instead',
+    'auth/invalid-email':                            'Invalid email address',
+    'auth/too-many-requests':                        'Too many attempts — try again later',
+    'auth/popup-closed-by-user':                     'Google sign-in was cancelled',
+    'auth/network-request-failed':                   'Network error — check your connection',
+    'auth/account-exists-with-different-credential': 'An account already exists with this email using a different sign-in method',
   };
-  return map[code] || `Error: ${code}`;
+  return map[code] || `Sign-in error: ${code}`;
 }
 
 // ════════════════════════════════════════════════════════════
